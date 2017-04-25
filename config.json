@@ -1,0 +1,27 @@
+{
+
+    "logLevel": "INFO",
+
+    "timezone": "America/Denver",
+    
+    "googleSecretFile": "app_credentials.json",
+    "gitlabSecret":     "paste_webhook_secret_here",
+    
+    "authorizedDomain": "your-gsuite-domain.net",
+    
+    "listenPort": 8080,
+    
+    "ssl": {
+        "enable":   true,
+        "keyfile":  "/etc/letsencrypt/live/domain_name/privkey.pem",
+        "certfile": "/etc/letsencrypt/live/domain_name/fullchain.pem"
+    },
+    
+    "repoMap": {
+        "repo1": "GitLab: Calendar 1",
+        "repo2": "GitLab: Calendar 1",
+        "repo3": "GitLab: Calendar 2",
+        "repo4": "GitLab: Calendar 2"
+    }
+
+}
