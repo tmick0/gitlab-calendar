@@ -22,6 +22,9 @@ import os
 import pwd
 import grp
 
+# signal handling
+import signal
+
 class thread_terminator (object):
     """ Dummy object to pass to queue to signal interrupt
     """
@@ -372,6 +375,9 @@ def main(config_file="config.json"):
         os.seteuid(uid)
         os.umask(0o077)
     
+    # make child thread ignore sigint
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    
     # instantiate event processing thread
     thread = Thread(
         target=event_processor_thread,
@@ -389,6 +395,11 @@ def main(config_file="config.json"):
     
     logger.info("Event processing thread successfully initialized.")
     logger.info("Starting HTTP listener...")
+    
+    # re-enable sigint and register a handler to translate it to KeyboardInterrupt
+    def sig_hdl(sig, frame):
+        raise KeyboardInterrupt()
+    signal.signal(signal.SIGINT, sig_hdl)
     
     # start listening
     try:
