@@ -46,6 +46,13 @@ keys are defined:
     - `certfile`: Path to PEM file containing certificate. Not required if
       `enable` is false.
 - `repoMap`: Mapping between GitLab project names (keys) and calendars (values).
+- `dropPrivileges`: Configuration for dropping root privileges after necessary
+  files and sockets are open.
+   - `enable`: Boolean indicating whether to drop root privileges.
+   - `user`: Name of user to switch to after initialization. Not required if
+     `enable` is false.
+   - `group`: Name of group to switch to after initialization. Not required if
+     `enable` is false.
 
 The Google credential file is obtained when you create a service account. A
 service account can be created at
@@ -58,6 +65,12 @@ populating the `repoMap` and starting the daemon for the first time.
 Note that in the `repoMap`, only the actual project names are used -- not the
 full namespaces. Multiple projects may be mapped to the same calendar.
 
+The `dropPrivileges` configuration allows root privileges to be dropped after
+loading TLS keys, loading API credentials, and opening the listen socket. If you
+must run this application as root in order to open these files, or you are
+listening on a privileged port, then it is highly recommended to enable this
+feature.
+
 ## Running
 
 Invoke as `python3 calendar_manager.py config.json`. The process will persist in
@@ -65,11 +78,11 @@ the foreground by default, so run it in a screen or under a daemon manager if
 you want to background it.
 
 The first time you run this application, it will create all calendars listed
-in the `repoMap`. The IDs of these calendars will be printed to stdout. Paste
-an ID in Google Calendar's "Add a coworker's calendar" box to synchronize it
-with your account.
+in the `repoMap`. The IDs of these calendars will be printed to the console.
+Paste an ID in Google Calendar's "Add a coworker's calendar" box to synchronize
+it with your account.
 
-A `KeyboardInterrupt` (CTRL-C) will stop the process.
+A `KeyboardInterrupt` or SIGINT will cleanly stop the process.
 
 ## Behavior
 

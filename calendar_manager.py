@@ -17,6 +17,11 @@ import ssl
 from threading import Thread, Event, current_thread
 from queue import Queue
 
+# imports for dropping root privs
+import os
+import pwd
+import grp
+
 class thread_terminator (object):
     """ Dummy object to pass to queue to signal interrupt
     """
@@ -132,7 +137,7 @@ def handle_event(data, service, calIdMap, config):
     logger.debug("No action taken on event:")
     logger.debug(data)
 
-def event_processor_thread(config, flag, queue):
+def event_processor_thread(config, credentials, flag, queue):
     """
     Event processing thread. Gathers calendar IDs, signals the synchronization
     event "flag" to wake the main thread, then enters the event handling
@@ -146,11 +151,7 @@ def event_processor_thread(config, flag, queue):
     # set success flag to true initially
     current_thread().successful_init = True
     
-    # load google api credentials and instantiate client
-    logger.info("Loading credentials...")
-    credentials = ServiceAccountCredentials.from_json_keyfile_name(
-        config['googleSecretFile'], 'https://www.googleapis.com/auth/calendar'
-    )
+    # instantiate client
     service = discovery.build('calendar', 'v3', credentials=credentials)
     
     # get calendar mappings
@@ -332,26 +333,11 @@ def main(config_file="config.json"):
 
     # start logging
     logger.setLevel(level=getattr(logging, config['logLevel']))
-
-    # instantiate event processing thread
+    
+    # create synchronization structures
     flag = Event()
     queue = Queue()
-    thread = Thread(
-        target=event_processor_thread,
-        args=[config, flag, queue]
-    )
-    thread.start()
-    flag.wait()
-    
-    # check for successful initialization
-    if not thread.successful_init:
-        logger.error("Event processing thread failed to initialize. Terminating.")
-        thread.join()
-        queue.join()
-        return 1
-    
-    logger.info("Event processing thread successfully initialized.")
-    
+
     # instantiate http listener
     try:
         httpd = socketserver.TCPServer(("", config['listenPort']), get_http_handler(queue, config))
@@ -366,9 +352,42 @@ def main(config_file="config.json"):
     except Exception as e:
         logger.error("Failed to initialize HTTP server. Terminating.")
         logger.exception(e)
-        stop_thread(thread, queue)
         return 1
     
+    # load google api credentials
+    logger.info("Loading API credentials...")
+    creds = ServiceAccountCredentials.from_json_keyfile_name(
+        config['googleSecretFile'], 'https://www.googleapis.com/auth/calendar'
+    )
+    
+    # drop root privileges
+    if os.geteuid() == 0 and config['dropPrivileges']['enable']:
+        logger.info("Dropping root privileges...")
+        uid = pwd.getpwnam(config['dropPrivileges']['user']).pw_uid
+        gid = grp.getgrnam(config['dropPrivileges']['group']).gr_gid
+        os.setgroups([])
+        os.setgid(gid)
+        os.setegid(gid)
+        os.setuid(uid)
+        os.seteuid(uid)
+        os.umask(0o077)
+    
+    # instantiate event processing thread
+    thread = Thread(
+        target=event_processor_thread,
+        args=[config, creds, flag, queue]
+    )
+    thread.start()
+    flag.wait()
+    
+    # check for successful initialization
+    if not thread.successful_init:
+        logger.error("Event processing thread failed to initialize. Terminating.")
+        thread.join()
+        queue.join()
+        return 1
+    
+    logger.info("Event processing thread successfully initialized.")
     logger.info("Starting HTTP listener...")
     
     # start listening

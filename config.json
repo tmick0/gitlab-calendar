@@ -22,6 +22,12 @@
         "repo2": "GitLab: Calendar 1",
         "repo3": "GitLab: Calendar 2",
         "repo4": "GitLab: Calendar 2"
+    },
+    
+    "dropPrivileges": {
+        "enable": true,
+        "user": "nobody",
+        "group": "nobody"
     }
 
 }
