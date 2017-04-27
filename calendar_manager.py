@@ -202,6 +202,8 @@ def get_http_handler(queue, config):
     
     Returns the new WebhookHTTPRequestHandler class.
     """
+    
+    logger = logging.getLogger('calmgr')
 
     class WebhookHTTPRequestHandler (http.server.BaseHTTPRequestHandler):
         """
@@ -211,9 +213,9 @@ def get_http_handler(queue, config):
         """
         
         def log_message(self, format, *args):
-            """ Silence request logging
+            """ Pass HTTP events to our logger
             """
-            return
+            logger.debug(format % args)
     
         def _success_headers(self):
             """ Send success response (HTTP 200)
@@ -234,12 +236,14 @@ def get_http_handler(queue, config):
             """
             
             # verify auth token
-            if self.headers['X-Gitlab-Token'] != config['gitlabSecret']:
+            if not 'X-Gitlab-Token' in self.headers or self.headers['X-Gitlab-Token'] != config['gitlabSecret']:
+                logger.debug('Dropping event with bad secret')
                 self._failure_headers()
                 return
             
             # verify correct event
-            if not self.headers['X-Gitlab-Event'] in ["Issue Hook"]:
+            if not 'X-Gitlab-Event' in self.headers or not self.headers['X-Gitlab-Event'] in ["Issue Hook"]:
+                logger.debug('Dropping non-issue event')
                 self._failure_headers()
                 return
             
