@@ -6,6 +6,8 @@ Webhook-based integration to add GitLab issue deadlines to Google Calendar
 This application receives issue webhooks from GitLab and manages events in
 Google Calendar corresponding to those issues' deadlines.
 
+![screenshot](http://i.imgur.com/A4AGrU1.png)
+
 No storage is required on the webhook server. All necessary state is stored in
 extended attributes of Google Calendar events.
 
