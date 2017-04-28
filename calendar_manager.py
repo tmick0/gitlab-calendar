@@ -91,7 +91,6 @@ def handle_event(data, service, gitlab, calIdMap, config):
         
         if len(search) > 0:
             prevId = search[0]['id']
-            logger.debug("Issue corresponds to existing event: %s." % prevId)
             service.events().delete(
                 calendarId=calId,
                 eventId=prevId
@@ -137,7 +136,6 @@ def handle_event(data, service, gitlab, calIdMap, config):
             body=body
         ).execute()
         logger.info("New event %s created." % e['id'])
-        logger.info(e)
         return
     
     # if we get here, that means no action was taken on the event
