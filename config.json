@@ -7,6 +7,13 @@
     "googleSecretFile": "app_credentials.json",
     "gitlabSecret":     "paste_webhook_secret_here",
     
+    "gitlabApi": {
+        "enable": true,
+        "url": "https://gitlab.example.com/",
+        "token": "paste_impersonation_token_here",
+        "inviteAssignees": true
+    },
+    
     "authorizedDomain": "your-gsuite-domain.net",
     
     "listenPort": 8080,

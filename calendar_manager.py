@@ -2,6 +2,7 @@
 import sys
 import logging
 import json
+from copy import deepcopy
 
 # google api libs
 from apiclient import discovery
@@ -25,6 +26,23 @@ import grp
 # signal handling
 import signal
 
+# default configuration dict
+DEFAULT_CONFIG = {
+    'logLevel': 'INFO',
+    'timezone': 'Etc/UTC',
+    'gitlabApi': {
+        'enable': False
+    },
+    'ssl': {
+        'enable': False
+    },
+    'dropPrivileges': {
+        'enable': False
+    },
+    'listenPort': 8080,
+    'repoMap': {}
+}
+
 class thread_terminator (object):
     """ Dummy object to pass to queue to signal interrupt
     """
@@ -37,7 +55,7 @@ def stop_thread(thread, queue):
     thread.join()
     queue.join()
 
-def handle_event(data, service, calIdMap, config):
+def handle_event(data, service, gitlab, calIdMap, config):
     """
     Processes an incoming event "data", maps it to a calendar through "config"
     and "calIdMap", and creates/updates/deletes a calendar entry through
@@ -62,10 +80,7 @@ def handle_event(data, service, calIdMap, config):
     # get event attributes
     attrs = data['object_attributes']
     
-    # var to store id of existing calendar entry
-    prevId = None
-    
-    # if this is not a new issue, check for an existing calendar entry
+    # if this is not a new issue, check for an existing calendar entry and delete it
     if attrs['action'] != "open":
     
         searchRes = service.events().list(
@@ -77,64 +92,53 @@ def handle_event(data, service, calIdMap, config):
         if len(search) > 0:
             prevId = search[0]['id']
             logger.debug("Issue corresponds to existing event: %s." % prevId)
-        else:
-            logger.debug("Issue does not correspond to an existing event.")
-    
-    # build event body
-    body = {
-        'summary': attrs['title'],
-        'description': attrs['url'],
-        'extendedProperties': {
-            'private': {
-                'issueId': attrs['id']
-            }
-        }
-    }
-    
-    if 'assignee' in data:
-        body['description'] += "\nAssignee: %s" % data['assignee']['username']
-    
-    if attrs['due_date'] is not None:
-        body['start'] = {
-            'date': attrs['due_date']
-        }
-        body['end'] = {
-            'date': attrs['due_date']
-        }
-    
-    # if an existing entry was found...
-    if prevId is not None:
-    
-        # delete from calendar if either the issue is closed, or the due date was removed
-        if attrs['state'] == 'closed' or attrs['due_date'] is None:
             service.events().delete(
                 calendarId=calId,
                 eventId=prevId
             ).execute()
-            logger.info("Event %s deleted." % prevId)
-            return
-        
-        # otherwise, update the event
-        else:
-            service.events().update(
-                calendarId=calId,
-                eventId=prevId,
-                body=body
-            ).execute()
-            logger.info("Event %s updated." % prevId)
-            return
+            logger.info("Existing event %s deleted." % prevId)
     
-    # else if an existing entry was not found...
-    else:
+    # if issue is closed or there is no due date, we do not need to make a new issue
+    if attrs['state'] in ['opened', 'reopened'] and attrs['due_date'] is not None:
         
-        # if the issue is open and there is a due date, create a new event
-        if attrs['state'] in ['opened', 'reopened'] and attrs['due_date'] is not None:
-            e = service.events().insert(
-                calendarId=calId,
-                body=body
-            ).execute()
-            logger.info("Event %s created." % e['id'])
-            return
+        # build event body
+        body = {
+            'summary': attrs['title'],
+            'description': "%s #%d\n%s" % (data['project']['name'], attrs['iid'], attrs['url']),
+            'extendedProperties': {
+                'private': {
+                    'issueId': attrs['id']
+                }
+            },
+            'start': {
+                'date': attrs['due_date']
+            },
+            'end': {
+                'date': attrs['due_date']
+            },
+            'guestsCanInviteOthers': False,
+            'transparency': 'transparent',
+            'attendees': []
+        }
+        
+        # populate assignee field using email from gitlab, if feature is enabled
+        if 'assignee' in data:
+            if gitlab and config['gitlabApi']['inviteAssignees']:
+                body['attendees'].append({
+                    'email': gitlab.users.list(username=data['assignee']['username'])[0].email,
+                    'responseStatus': 'accepted'
+                })
+            else:
+                body['description'] += "\nAssignee: %s" % data['assignee']['username']
+        
+        # call api to create issue
+        e = service.events().insert(
+            calendarId=calId,
+            body=body
+        ).execute()
+        logger.info("New event %s created." % e['id'])
+        logger.info(e)
+        return
     
     # if we get here, that means no action was taken on the event
     logger.debug("No action taken on event:")
@@ -154,8 +158,19 @@ def event_processor_thread(config, credentials, flag, queue):
     # set success flag to true initially
     current_thread().successful_init = True
     
-    # instantiate client
+    # instantiate google api client
     service = discovery.build('calendar', 'v3', credentials=credentials)
+    
+    # instantiate gitlab api client if enabled
+    gitlab = None
+    if config['gitlabApi']['enable']:
+        try:
+            from gitlab import Gitlab
+            gitlab = Gitlab(config['gitlabApi']['url'], config['gitlabApi']['token'])
+        except Exception as e:
+            logger.error("Failed to instantiate GitLab API client.")
+            logger.exception(e)
+            current_thread().successful_init = False
     
     # get calendar mappings
     logger.info("Initializing calendar ID mapping...")
@@ -187,7 +202,7 @@ def event_processor_thread(config, credentials, flag, queue):
             
             # process event, logging any error
             try:
-                handle_event(event, service, calIdMap, config)
+                handle_event(event, service, gitlab, calIdMap, config)
             except Exception as e:
                 logger.error("Unhandled exception while processing event.")
                 logger.exception(e)
@@ -329,10 +344,10 @@ def main(config_file="config.json"):
     logger.addHandler(stream)
 
     # load configuration
-    config = {}
+    config = deepcopy(DEFAULT_CONFIG)
     try:
         with open(config_file, 'r') as fh:
-            config = json.load(fh)
+            config.update(json.load(fh))
     except Exception as e:
         logger.error('Could not load configuration file, terminating.')
         logger.exception(e)

@@ -20,11 +20,18 @@ As-is, a G Suite domain is required for the purpose of access control, however
 you can also modify the ACL instantiation manually to authenticate at a level
 other than the domain.
 
+Optionally, issue assignees can automatically be added as event attendees. If
+enabled, the assignee's email address is fetched from their GitLab profile. This
+allows Google Calendar to notify them of upcoming issue deadlines.
+
 ## Dependencies
 
 Tested on Python 3.5.2. May work on older versions, but not guaranteed.
 
 Requires `google-api-python-client`, available through `pip`.
+
+If the `gitlabApi` feature is desired, then `python-gitlab` must also be
+installed (also through `pip`).
 
 ## Configuration
 
@@ -53,6 +60,13 @@ keys are defined:
      `enable` is false.
    - `group`: Name of group to switch to after initialization. Not required if
      `enable` is false.
+- `gitlabApi`: Configures additional features accessed through the GitLab API.
+   - `enable`: Boolean indicating whether or not to load the GitLab API module.
+   - `url`: URL for your GitLab instance. Not required if `enable` is false.
+   - `token`: Impersonation token for the GitLab instance. Not required if
+     `enable` is false.
+   - `inviteAssignees`: Boolean indicating whether to invite issue assignees to
+     deadline events by fetching their email address from GitLab.
 
 The Google credential file is obtained when you create a service account. A
 service account can be created at
@@ -70,6 +84,11 @@ loading TLS keys, loading API credentials, and opening the listen socket. If you
 must run this application as root in order to open these files, or you are
 listening on a privileged port, then it is highly recommended to enable this
 feature.
+
+The `gitlabApi` integration is entirely optional, and will only unlock the
+ability to automatically add issue assignees to corresponding events as
+attendees. If it is not enabled, then the `python-gitlab` package need not be
+installed.
 
 ## Running
 
@@ -102,6 +121,10 @@ issues created or modified while this service is inactive will not be reflected
 in your calendars.
 
 Changing a repo's calendar in the `repoMap` will break things. Don't do it.
+
+If using `inviteAssignees`, then be warned that if an assignee changes their
+email address on GitHub, that change will not be reflected in any calendar
+entries unless the corresponding issue is updated.
 
 As stated above, `timezone` and `authorizedDomain` attributes of calendars
 are set at the time they are created, so make sure they are correct before
