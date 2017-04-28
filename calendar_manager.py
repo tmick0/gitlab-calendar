@@ -136,11 +136,6 @@ def handle_event(data, service, gitlab, calIdMap, config):
             body=body
         ).execute()
         logger.info("New event %s created." % e['id'])
-        return
-    
-    # if we get here, that means no action was taken on the event
-    logger.debug("No action taken on event:")
-    logger.debug(data)
 
 def event_processor_thread(config, credentials, flag, queue):
     """
