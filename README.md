@@ -110,7 +110,10 @@ A `KeyboardInterrupt` or SIGINT will cleanly stop the process.
 ### Docker run
 
 - Build: `docker build -t gitlab-calendar .`
-- Run: `docker run --name gitlab-calendar -p 8080:8080 gitlab-calendar`
+- Run: `docker run -d --name gitlab-calendar -p 8080:8080 gitlab-calendar`
+- View logs: `docker logs gitlab-calendar`
+- Stop: `docker stop gitlab-calendar`
+- Remove: `docker rm gitlab-calendar`
 
 ## Behavior
 
