@@ -28,6 +28,8 @@ allows Google Calendar to notify them of upcoming issue deadlines.
 
 ## Dependencies
 
+Automatic install: `pip install -r requirements.txt`
+
 Tested on Python 3.5.2. May work on older versions, but not guaranteed.
 
 Requires `google-api-python-client`, available through `pip`.
@@ -104,6 +106,14 @@ Paste an ID in Google Calendar's "Add a coworker's calendar" box to synchronize
 it with your account.
 
 A `KeyboardInterrupt` or SIGINT will cleanly stop the process.
+
+### Docker run
+
+- Build: `docker build -t gitlab-calendar .`
+- Run: `docker run -d --name gitlab-calendar -p 8080:8080 gitlab-calendar`
+- View logs: `docker logs gitlab-calendar`
+- Stop: `docker stop gitlab-calendar`
+- Remove: `docker rm gitlab-calendar`
 
 ## Behavior
 
