@@ -121,14 +121,16 @@ def handle_event(data, service, gitlab, calIdMap, config):
         }
         
         # populate assignee field using email from gitlab, if feature is enabled
-        if 'assignee' in data:
+        
+        if 'assignees' in data:
             if gitlab and config['gitlabApi']['inviteAssignees']:
-                body['attendees'].append({
-                    'email': gitlab.users.list(username=data['assignee']['username'])[0].email,
-                    'responseStatus': 'accepted'
-                })
+                for a in data['assignees']:
+                    body['attendees'].append({
+                        'email': gitlab.users.list(username=a['username'])[0].email,
+                        'responseStatus': 'accepted'
+                    })
             else:
-                body['description'] += "\nAssignee: %s" % data['assignee']['username']
+                body['description'] += "\nAssignees: {:s}".format(', '.join(a['username'] for a in data['assignees']))
         
         # call api to create issue
         e = service.events().insert(
