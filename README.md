@@ -32,7 +32,7 @@ Automatic install: `pip install -r requirements.txt`
 
 Tested on Python 3.5.2. May work on older versions, but not guaranteed.
 
-Requires `google-api-python-client`, available through `pip`.
+Requires `google-api-python-client` and `oauth2client`, available through `pip`.
 
 If the `gitlabApi` feature is desired, then `python-gitlab` must also be
 installed (also through `pip`).
